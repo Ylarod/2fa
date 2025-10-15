@@ -385,7 +385,9 @@
         // 复制链接功能
         document.getElementById('copyLinkBtn').addEventListener('click', function() {
             if (currentSecret) {
-                const url = window.location.origin + window.location.pathname + '#secret=' + encodeURIComponent(currentSecret);
+                // 标准化 secret 为无空格的大写字母
+                const normalizedSecret = normalizeSecret(currentSecret);
+                const url = window.location.origin + window.location.pathname + '#secret=' + encodeURIComponent(normalizedSecret);
                 navigator.clipboard.writeText(url).then(() => {
                     const btn = document.getElementById('copyLinkBtn');
                     btn.textContent = '✓ 链接已复制';
