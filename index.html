@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2FA 验证码生成器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .code-display {
+            background: #f7f9fc;
+            border-radius: 12px;
+            padding: 30px 20px;
+            margin: 30px 0;
+            border: 2px solid #e1e8ed;
+        }
+
+        .code {
+            font-size: 48px;
+            font-weight: 700;
+            letter-spacing: 8px;
+            color: #667eea;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 15px;
+        }
+
+        .timer {
+            font-size: 16px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e1e8ed;
+            border-radius: 4px;
+            margin-top: 15px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: width 0.1s linear;
+        }
+
+        .error {
+            color: #e74c3c;
+            padding: 20px;
+            background: #fee;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .info {
+            color: #666;
+            font-size: 14px;
+            margin-top: 20px;
+            line-height: 1.6;
+        }
+
+        .input-section {
+            margin-top: 20px;
+        }
+
+        .secret-input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .secret-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .copy-btn {
+            background: #f7f9fc;
+            color: #667eea;
+            border: 2px solid #667eea;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .copied {
+            background: #27ae60 !important;
+            color: white !important;
+            border-color: #27ae60 !important;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .button-group .copy-btn {
+            flex: 1;
+            margin-top: 0;
+        }
+
+        .link-btn {
+            background: #f7f9fc;
+            color: #764ba2;
+            border: 2px solid #764ba2;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex: 1;
+        }
+
+        .link-btn:hover {
+            background: #764ba2;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 2FA 验证码生成器</h1>
+
+        <div id="app">
+            <div class="code-display" id="codeDisplay" style="display: none;">
+                <div class="code" id="codeValue">------</div>
+                <div class="button-group">
+                    <button class="copy-btn" id="copyBtn">📋 复制代码</button>
+                    <button class="link-btn" id="copyLinkBtn">🔗 复制链接</button>
+                </div>
+                <div class="timer">剩余时间: <span id="timer">30</span> 秒</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+
+            <div class="error" id="errorMsg" style="display: none;"></div>
+
+            <div class="input-section">
+                <input
+                    type="text"
+                    class="secret-input"
+                    id="secretInput"
+                    placeholder="输入 Secret Key（支持各种格式）"
+                    autocomplete="off"
+                >
+                <button class="btn" id="generateBtn">生成验证码</button>
+            </div>
+
+            <div class="info">
+                <strong>使用方式：</strong><br>
+                1. 在URL中添加 <code>#secret=YOUR_SECRET</code><br>
+                2. 或在上方输入框手动输入 Secret Key<br><br>
+                支持各种格式的 Secret（带空格、连字符等分隔符均可）
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Secret 预处理函数 - 清理各种格式
+        function normalizeSecret(secret) {
+            // 移除所有空格、换行符、制表符
+            secret = secret.replace(/\s/g, '');
+            // 移除常见的分隔符：-、*、.、,、_
+            secret = secret.replace(/[-*.,_]/g, '');
+            // 转换为大写
+            secret = secret.toUpperCase();
+            // 移除尾部的等号
+            secret = secret.replace(/=+$/, '');
+            return secret;
+        }
+
+        // Base32 解码函数 - 转换为 Uint8Array
+        function base32ToBytes(base32) {
+            const base32Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+            // 预处理 secret
+            base32 = normalizeSecret(base32);
+
+            // 验证并转换
+            let bits = '';
+            for (let i = 0; i < base32.length; i++) {
+                const val = base32Chars.indexOf(base32[i]);
+                if (val === -1) {
+                    throw new Error(`无效字符 '${base32[i]}' 在位置 ${i}。Secret 应该只包含 A-Z 和 2-7`);
+                }
+                bits += val.toString(2).padStart(5, '0');
+            }
+
+            const bytes = [];
+            for (let i = 0; i + 8 <= bits.length; i += 8) {
+                bytes.push(parseInt(bits.slice(i, i + 8), 2));
+            }
+
+            return new Uint8Array(bytes);
+        }
+
+        // 使用 Web Crypto API 生成 TOTP 代码
+        async function generateTOTP(secret, timeStep = 30) {
+            try {
+                // 解码 Base32 密钥
+                const keyBytes = base32ToBytes(secret);
+
+                // 计算时间片
+                const epoch = Math.floor(Date.now() / 1000);
+                const counter = Math.floor(epoch / timeStep);
+
+                // 将 counter 转换为 8 字节数组（大端序）
+                const counterBytes = new ArrayBuffer(8);
+                const counterView = new DataView(counterBytes);
+                counterView.setUint32(4, counter, false); // 大端序
+
+                // 导入密钥
+                const key = await crypto.subtle.importKey(
+                    'raw',
+                    keyBytes,
+                    { name: 'HMAC', hash: { name: 'SHA-1' } },
+                    false,
+                    ['sign']
+                );
+
+                // 计算 HMAC-SHA1
+                const signature = await crypto.subtle.sign(
+                    'HMAC',
+                    key,
+                    counterBytes
+                );
+
+                // 转换为 Uint8Array
+                const hmacArray = new Uint8Array(signature);
+
+                // 动态截断
+                const offset = hmacArray[hmacArray.length - 1] & 0x0f;
+                const view = new DataView(hmacArray.buffer);
+                const truncatedHash = view.getUint32(offset, false) & 0x7fffffff;
+
+                // 生成 6 位 OTP
+                const otp = (truncatedHash % 1000000).toString().padStart(6, '0');
+
+                return otp;
+            } catch (error) {
+                throw new Error('Secret 格式错误，请确保使用有效的 Base32 格式');
+            }
+        }
+
+        // UI 更新函数
+        let updateInterval = null;
+        let currentSecret = null;
+
+        function showError(message) {
+            document.getElementById('errorMsg').textContent = message;
+            document.getElementById('errorMsg').style.display = 'block';
+            document.getElementById('codeDisplay').style.display = 'none';
+        }
+
+        function hideError() {
+            document.getElementById('errorMsg').style.display = 'none';
+        }
+
+        async function updateCode() {
+            if (!currentSecret) return;
+
+            try {
+                const code = await generateTOTP(currentSecret);
+                document.getElementById('codeValue').textContent = code;
+
+                const epoch = Math.floor(Date.now() / 1000);
+                const remaining = 30 - (epoch % 30);
+                document.getElementById('timer').textContent = remaining;
+
+                const progress = (remaining / 30) * 100;
+                document.getElementById('progressFill').style.width = progress + '%';
+
+                hideError();
+                document.getElementById('codeDisplay').style.display = 'block';
+            } catch (error) {
+                showError(error.message);
+                stopUpdate();
+            }
+        }
+
+        function startUpdate(secret) {
+            currentSecret = secret;
+            stopUpdate();
+            updateCode();
+            updateInterval = setInterval(updateCode, 1000);
+        }
+
+        function stopUpdate() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+            }
+        }
+
+        // 从 URL hash 解析 secret
+        function parseSecretFromHash() {
+            const hash = window.location.hash;
+            if (hash && hash.startsWith('#secret=')) {
+                return decodeURIComponent(hash.substring(8));
+            }
+            return null;
+        }
+
+        // 复制代码功能
+        document.getElementById('copyBtn').addEventListener('click', function() {
+            const code = document.getElementById('codeValue').textContent;
+            if (code !== '------') {
+                navigator.clipboard.writeText(code).then(() => {
+                    const btn = document.getElementById('copyBtn');
+                    btn.textContent = '✓ 已复制';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.textContent = '📋 复制代码';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            }
+        });
+
+        // 复制链接功能
+        document.getElementById('copyLinkBtn').addEventListener('click', function() {
+            if (currentSecret) {
+                const url = window.location.origin + window.location.pathname + '#secret=' + encodeURIComponent(currentSecret);
+                navigator.clipboard.writeText(url).then(() => {
+                    const btn = document.getElementById('copyLinkBtn');
+                    btn.textContent = '✓ 链接已复制';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.textContent = '🔗 复制链接';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            }
+        });
+
+        // 手动生成按钮
+        document.getElementById('generateBtn').addEventListener('click', function() {
+            const secret = document.getElementById('secretInput').value.trim();
+            if (secret) {
+                window.location.hash = '#secret=' + encodeURIComponent(secret);
+                startUpdate(secret);
+            } else {
+                showError('请输入 Secret Key');
+            }
+        });
+
+        // 输入框回车事件
+        document.getElementById('secretInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('generateBtn').click();
+            }
+        });
+
+        // 监听 hash 变化
+        window.addEventListener('hashchange', function() {
+            const secret = parseSecretFromHash();
+            if (secret) {
+                document.getElementById('secretInput').value = secret;
+                startUpdate(secret);
+            }
+        });
+
+        // 初始化
+        window.addEventListener('load', function() {
+            const secret = parseSecretFromHash();
+            if (secret) {
+                document.getElementById('secretInput').value = secret;
+                startUpdate(secret);
+            }
+        });
+    </script>
+</body>
+</html>
